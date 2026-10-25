@@ -1,0 +1,80 @@
+name: commodity-shock-observatory
+x-env: &environment
+  DATABASE_URL: postgresql://observatory:${POSTGRES_PASSWORD:-local_observatory_only}@postgres:5432/observatory
+  KAFKA_BOOTSTRAP: kafka:9092
+  DATA_DIR: /app/data
+  ARTIFACT_DIR: /app/artifacts
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    ports: ["127.0.0.1:9094:9094"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes: ["kafka-data:/var/lib/kafka/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: observatory
+      POSTGRES_USER: observatory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_observatory_only}
+    ports: ["127.0.0.1:5434:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U observatory -d observatory"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  api:
+    build: {context: ., target: runtime}
+    environment: *environment
+    ports: ["127.0.0.1:8080:8080"]
+    volumes: ["./artifacts:/app/artifacts", "./data:/app/data"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  spark:
+    build: {context: ., target: spark}
+    environment:
+      <<: *environment
+      SPARK_LOCAL_IP: 127.0.0.1
+      SPARK_MODES: REPLAY,SYNTHETIC,LIVE
+    volumes: ["lake:/app/lake", "checkpoints:/app/checkpoints", "./artifacts:/app/artifacts"]
+    depends_on:
+      kafka: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    mem_limit: 4g
+    stop_grace_period: 30s
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: ["monitoring"]
+    ports: ["127.0.0.1:9090:9090"]
+    volumes: ["./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    depends_on: [api]
+volumes:
+  kafka-data:
+  postgres-data:
+  lake:
+  checkpoints:

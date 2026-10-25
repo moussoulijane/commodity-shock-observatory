@@ -1,0 +1,40 @@
+name: Validate observatory
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  contracts-and-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: 0.12.19
+          enable-cache: "false"
+      - run: uv sync --frozen --python 3.11
+      - run: uv run ruff check src tests infra
+      - run: uv run pytest -q
+      - run: npm ci && npm run build
+        working-directory: frontend
+  streaming-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: 0.12.19
+          enable-cache: "false"
+      - run: uv sync --frozen --python 3.11
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: docker compose up -d --build
+      - run: uv run cso init
+      - run: uv run cso reliability
+      - if: failure()
+        run: docker compose logs --tail 120 spark api kafka
+      - if: always()
+        run: docker compose down

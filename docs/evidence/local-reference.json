@@ -1,0 +1,237 @@
+{
+  "created_at": "2026-10-25T15:50:09.422194+00:00",
+  "scope": "Local Docker Desktop validation; aggregate evidence only; no production or independent accuracy claim",
+  "source_counts": {
+    "quotes": 13796,
+    "counts": {
+      "BRENT": 6491,
+      "WTI": 6342,
+      "COPPER": 321,
+      "GOLD": 321,
+      "WHEAT": 321
+    },
+    "failures": {},
+    "historical_publication_times": "unknown; observed_at is download time",
+    "mode": "REPLAY",
+    "created_at": "2026-10-25T14:57:50.531417+00:00"
+  },
+  "snapshot_parity": {
+    "status": "passed",
+    "expected_observations": 13796,
+    "serving_observations": 13796,
+    "missing": 0,
+    "price_mismatches": 0,
+    "deliveries": {
+      "n": 13796,
+      "invalid": 0
+    },
+    "scope": "Downloaded current snapshot versus canonical serving prices; not macro accuracy",
+    "created_at": "2026-10-25T15:44:29.359491+00:00"
+  },
+  "recovery": {
+    "status": "passed",
+    "test_revision": "reliability-25dba8796c",
+    "kill": "SIGKILL spark; restart with persistent checkpoints",
+    "canonical_expected": 81,
+    "canonical_found": 81,
+    "duplicate_messages_sent": 8,
+    "invalid_or_conflicting_messages": [
+      {
+        "reason": "ValidationError: contract rejected",
+        "n": 1
+      },
+      {
+        "reason": "identity value conflict",
+        "n": 1
+      }
+    ],
+    "out_of_order": "40 valid observations in reverse order",
+    "stateful_window_parity": "passed: counts / mean / min / max versus independent delivery aggregate",
+    "late_record": "30 days late retained in canonical store; telemetry may drop it",
+    "observation_day_counts": [
+      {
+        "day": "2026-10-25T00:00:00+00:00",
+        "n": 80
+      }
+    ],
+    "created_at": "2026-10-25T15:34:11.799833+00:00",
+    "scope": "Single local broker/driver process recovery; not broker HA or distributed exactly-once"
+  },
+  "load": {
+    "status": "completed",
+    "mode": "SYNTHETIC",
+    "events": 5000,
+    "producer_seconds": 0.653729500000054,
+    "all_events_visible_seconds": 42.4677435000001,
+    "end_to_end_events_per_second": 117.73641799451832,
+    "first_observed_visibility_p50_seconds": 31.943452,
+    "first_observed_visibility_p95_seconds": 42.474656,
+    "latency_caveat": "From event construction to first external SELECT visibility; includes publication and 0.5s polling plus query time. Not intrinsic Spark processing latency.",
+    "configuration": "Docker Desktop, Spark local[2], 2 shuffle partitions, maxOffsetsPerTrigger=2000, single Kafka broker",
+    "created_at": "2026-10-25T15:34:56.806643+00:00"
+  },
+  "macro": {
+    "status": "completed",
+    "evaluation_type": "exploratory_revised_data",
+    "created_at": "2026-10-25T14:59:11.496081+00:00",
+    "target": "US CPI seasonally adjusted YoY, percentage points",
+    "information_policy": "CURRENT revised snapshot; ASSUMED lags CPI=45 calendar days from month start, oil=5 days. NOT a real-time backtest.",
+    "limitations": [
+      "No causal interpretation",
+      "Fixed hyperparameters; no tuning on evaluation origins",
+      "Overlapping horizons: errors are dependent; no significance claim",
+      "Revision leakage remains despite assumed release lags"
+    ],
+    "metrics": [
+      {
+        "horizon": 1,
+        "model": "Persistence",
+        "n": 96,
+        "mae_pp": 0.5505275764219123,
+        "rmse_pp": 0.7431304273969375
+      },
+      {
+        "horizon": 1,
+        "model": "AR ridge",
+        "n": 96,
+        "mae_pp": 0.5581230184481412,
+        "rmse_pp": 0.7763101930306279
+      },
+      {
+        "horizon": 1,
+        "model": "AR + oil ridge",
+        "n": 96,
+        "mae_pp": 0.5557002538925437,
+        "rmse_pp": 0.7566786826099169
+      },
+      {
+        "horizon": 1,
+        "model": "XGBoost",
+        "n": 96,
+        "mae_pp": 0.8706460098723531,
+        "rmse_pp": 1.345061022022009
+      },
+      {
+        "horizon": 3,
+        "model": "Persistence",
+        "n": 96,
+        "mae_pp": 0.859089272486349,
+        "rmse_pp": 1.1821183879680308
+      },
+      {
+        "horizon": 3,
+        "model": "AR ridge",
+        "n": 96,
+        "mae_pp": 0.8816892742333842,
+        "rmse_pp": 1.288915274175531
+      },
+      {
+        "horizon": 3,
+        "model": "AR + oil ridge",
+        "n": 96,
+        "mae_pp": 0.924812200343605,
+        "rmse_pp": 1.284646446978077
+      },
+      {
+        "horizon": 3,
+        "model": "XGBoost",
+        "n": 96,
+        "mae_pp": 1.198461404324408,
+        "rmse_pp": 1.9160619383886988
+      }
+    ],
+    "evaluation_periods": {
+      "1": {
+        "first_origin": "2018-06-30T23:59:59.999999+00:00",
+        "last_origin": "2026-08-31T23:59:59.999999+00:00"
+      },
+      "3": {
+        "first_origin": "2018-04-30T23:59:59.999999+00:00",
+        "last_origin": "2026-06-30T23:59:59.999999+00:00"
+      }
+    }
+  },
+  "detectors": {
+    "created_at": "2026-10-25T15:23:36.032232+00:00",
+    "real_data": [
+      {
+        "instrument": "BRENT",
+        "frequency": "daily",
+        "eligible": 6470,
+        "robust_alerts": 72,
+        "baseline_5pct_alerts": 313
+      },
+      {
+        "instrument": "COPPER",
+        "frequency": "monthly",
+        "eligible": 308,
+        "robust_alerts": 11,
+        "baseline_5pct_alerts": 96
+      },
+      {
+        "instrument": "GOLD",
+        "frequency": "monthly",
+        "eligible": 308,
+        "robust_alerts": 7,
+        "baseline_5pct_alerts": 59
+      },
+      {
+        "instrument": "WHEAT",
+        "frequency": "monthly",
+        "eligible": 308,
+        "robust_alerts": 10,
+        "baseline_5pct_alerts": 120
+      },
+      {
+        "instrument": "WTI",
+        "frequency": "daily",
+        "eligible": 6321,
+        "robust_alerts": 80,
+        "baseline_5pct_alerts": 356
+      }
+    ],
+    "synthetic_controlled": [
+      {
+        "detector": "baseline_alert",
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 11,
+        "precision": null,
+        "recall": 0.0
+      },
+      {
+        "detector": "robust_alert",
+        "true_positives": 11,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    ],
+    "synthetic_seed": 2026,
+    "interpretation": "Synthetic jump recovery is a controlled sensitivity check. Historical alert counts are not precision/recall; no independent real shock labels.",
+    "detector_parameters": "robust |z|>=4; prior 60 changes / 36 monthly changes; warmup 20 / 12; baseline |pct|>=5"
+  },
+  "strict_macro": "not run: no FRED API key supplied",
+  "live_feed": "adapter implemented; not exercised against an entitled provider account",
+  "source_file_sha256": {
+    "compose.yaml": "dafe669dd68356508507b11d2532d0df9b5823f219a81caefaac3fcbbc54bd4e",
+    "Dockerfile": "e4aeedda93e905d198796f51287c06fd2de3c77ef62261b978434bfb3feea859",
+    "frontend/package-lock.json": "8f1112cb2371e98520efa11beeb16738461fb1835bee103000f2681488eebd2f",
+    "frontend/src/main.tsx": "553bbddc8f76fa496d1afe442f3a1172ad3ee6e3a82f155c5fb48d18ff62bc9b",
+    "frontend/src/style.css": "3d223c4ecab84c577e96a21e5054be151a10f8dbba04bf89d2c2dc188ea234fb",
+    "src/observatory/__init__.py": "89a90140d2fb97967ed5e9a504500fc22107b407a791299bc0ca88afdbe3745a",
+    "src/observatory/api.py": "7bdd44fd6c575ee8759b8281b0a2f7b589c3bf9c9c6bf89832cc969562bb2085",
+    "src/observatory/cli.py": "522990e75cbe3a074110bc59ce96f82c0356e01d89df1ac5961460975c919fd8",
+    "src/observatory/config.py": "48859601bfdb1954fb1362c08ceeeabbd27ce35d473e739cd326c5b221401d3c",
+    "src/observatory/contracts.py": "21f990078ba1f299fd68f116f04779d085b7ed09d6b2a2d53faed324ae45a088",
+    "src/observatory/macro.py": "b79e1773e9278647b465b97871cc7d548d5910bb6ac57e7c2368075a4204fb17",
+    "src/observatory/producer.py": "6afbea809a9d86cf9db34ea90908d822d7468d6d681b6190c54abd69b5bc8378",
+    "src/observatory/signals.py": "219c2206a9c247dc5230532647ae81996efa0011b802a37df2426f1384afac0e",
+    "src/observatory/sources.py": "74502a749c1fe65e1faefc20b0a4ff1418a373f7d4e0c143d46d288cb382a8dd",
+    "src/observatory/store.py": "5f4cd58409f812eff3b3480f7b35adf2772cd3220166ac76d3e8cfb89e8f2020",
+    "src/observatory/streaming.py": "e27cd94f5e2cfb0b93c6069ab0219cfc4a85d1a2511bacbc127c23343ef108df",
+    "src/observatory/validation.py": "84465ace5adfaaadf21510bcd0a9554ff5d37c238e502d081a8a16717e7cbb91",
+    "uv.lock": "129db2d86923f56f65e68153b760cbb837300f17be604234132d7540d1b60119"
+  }
+}
