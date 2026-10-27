@@ -288,3 +288,73 @@ def test_legacy_generation_migration_keeps_default_zero(integration_db):
     with integration_db() as conn:
         row = conn.execute("SELECT generation,payload FROM signals_v2").fetchone()
     assert row["generation"] == 0 and row["payload"] == {"legacy": True}
+
+
+def test_legacy_delivery_migration_preserves_existing_audit_payload(integration_db):
+    with integration_db() as conn:
+        # Recreate the deployed V1 constraint before applying the V2 migration.
+        conn.execute("ALTER TABLE deliveries ALTER COLUMN payload SET NOT NULL")
+        conn.execute(
+            "INSERT INTO deliveries(topic,partition_id,offset_id,payload,valid) "
+            "VALUES ('legacy',0,0,'legacy audit bytes',false)"
+        )
+    target.init()
+    target.init()  # Existing schemas and restarts must both be supported.
+    with integration_db() as conn:
+        column = conn.execute(
+            "SELECT is_nullable FROM information_schema.columns "
+            "WHERE table_schema=current_schema() AND table_name='deliveries' "
+            "AND column_name='payload'"
+        ).fetchone()
+        legacy = conn.execute("SELECT payload FROM deliveries").fetchone()
+    assert column["is_nullable"] == "YES"
+    assert legacy["payload"] == "legacy audit bytes"
+
+
+@pytest.mark.parametrize("valid_in_same_batch", [False, True])
+def test_tombstone_is_audited_and_following_valid_offsets_progress(
+    integration_db, valid_in_same_batch
+):
+    first, following = quote(0), quote(1)
+    tombstone = {**delivery(None, 0), "payload": None}
+    json_null = delivery(None, 1)
+    batch = [tombstone, json_null]
+    if valid_in_same_batch:
+        batch.append(delivery(first, 2))
+    accepted, rejected, stats = target.ingest_batch(batch, 21)
+    assert len(accepted) == int(valid_in_same_batch)
+    assert stats == {
+        "input": len(batch),
+        "invalid": 2,
+        "new_events": int(valid_in_same_batch),
+        "storage_version": 2,
+    }
+    assert {r["off"]: r["reason"] for r in rejected} == {
+        0: "Kafka tombstone",
+        1: "contract rejected",
+    }
+    if not valid_in_same_batch:
+        assert target.feature_context(21) == ([], [])
+        resumed, _, resumed_stats = target.ingest_batch([delivery(first, 2)], 22)
+        assert resumed[0]["event_id"] == first["event_id"]
+        assert resumed_stats["new_events"] == 1
+    _, retried_rejects, retried_stats = target.ingest_batch(batch, 21)
+    assert len(retried_rejects) == 2 and retried_stats["new_events"] == 0
+    next_accepted, next_rejected, next_stats = target.ingest_batch([delivery(following, 3)], 23)
+    assert next_accepted[0]["event_id"] == following["event_id"]
+    assert next_rejected == [] and next_stats["new_events"] == 1
+    with integration_db() as conn:
+        audit = conn.execute(
+            "SELECT offset_id,payload,valid,reason FROM deliveries ORDER BY offset_id"
+        ).fetchall()
+        observed = conn.execute("SELECT event_id FROM observations ORDER BY event_time").fetchall()
+    assert len(audit) == 4
+    assert audit[0] == {
+        "offset_id": 0,
+        "payload": None,
+        "valid": False,
+        "reason": "Kafka tombstone",
+    }
+    assert audit[1]["payload"] == "null" and audit[1]["valid"] is False
+    assert [row["valid"] for row in audit[2:]] == [True, True]
+    assert [row["event_id"] for row in observed] == [first["event_id"], following["event_id"]]

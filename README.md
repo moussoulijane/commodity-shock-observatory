@@ -1,12 +1,27 @@
 # Commodity Shock Observatory
 
-**Which commodity moves change an importer's purchasing costs, and do they improve inflation forecasts?**
+[![Validate observatory](https://github.com/moussoulijane/commodity-shock-observatory/actions/workflows/ci.yml/badge.svg)](https://github.com/moussoulijane/commodity-shock-observatory/actions/workflows/ci.yml)
+
+**From commodity events to correction-aware market signals and explicit purchasing-cost scenarios.**
 
 A local Kafka/Spark platform combining auditable commodity surveillance, fictional Moroccan importer exposures, mechanical cost scenarios and chronologically evaluated macro research. Daily analyst use and engineering evaluation have separate workspaces.
 
+## Start with the evidence
+
+| Question | Inspectable result |
+| --- | --- |
+| Does the streaming result match an independent calculation? | 30,069 canonical observations, zero missing and zero feature mismatches in the recorded local run |
+| Does it repair failures and historical corrections? | SIGKILL recovery, 30-day-late events, revised quotes and an injected failure after a partial commit |
+| Does it meet the local latency objective? | At 50 events/s for 120 seconds, p95 signal visibility is 11.16 s; the 10 s objective is **not met** |
+| Does oil improve the inflation baseline here? | No demonstrated improvement: persistence beats oil-ridge and XGBoost in the exploratory revised-data experiment |
+
+For a quick review: inspect the [architecture and consistency boundaries](docs/ARCHITECTURE_V2.md), [measured validation](docs/LOCAL_VALIDATION_V2.md) and [regression tests](tests). The [French learning guide](docs/V2_GUIDE_FR.md) explains how to reproduce the work.
+
+The [publication review](docs/PUBLICATION_REVIEW.md) records the intended role fit, corrected edge cases and remaining evidence gaps.
+
 ![V2 importer exposure and scenario workspace](docs/figures/v2-exposure-desktop.png)
 
-## What V2 adds
+## What the platform does
 
 - **Exposure scenarios:** energy, copper and wheat purchasing profiles, explicit quantities, basis assumptions and hedges. MAD/USD is a user assumption, never an invented market quote. Price, FX and interaction effects reconcile to the net cost change.
 - **Incremental Spark features:** PostgreSQL COPY ingestion, typed Delta Silver, indexed affected neighborhoods and executor-side exact rolling median/MAD calculations. Canonical OHLC uses unique economic observations; delivery counters remain operational telemetry.
@@ -14,6 +29,21 @@ A local Kafka/Spark platform combining auditable commodity surveillance, fiction
 - **Independent event clocks:** REPLAY, LIVE and SYNTHETIC window queries have separate sources/checkpoints. A new synthetic timestamp cannot evict replay state.
 - **Stronger evidence:** matched calibration alert budgets with disjoint seeds, full-history feature parity, forced recovery at a partial-commit boundary, burst and sustained workload measurements.
 - **Macro V2:** latest-known revisions at each forecast origin, first-release target semantics, coverage diagnostics, paired block-bootstrap loss intervals and past-only residual prediction bands.
+
+## Why Kafka and Spark?
+
+Five daily/monthly histories alone would fit a simpler batch job. This project deliberately uses historical replay and isolated synthetic workloads to study the harder streaming questions: re-delivery, independent event clocks, out-of-order data, revisions, bounded recomputation and recovery between storage systems. The optional intraday adapter is a separate, conditional path. Replaying a daily file faster never turns it into an intraday market feed.
+
+```mermaid
+flowchart LR
+  A[Historical replay / optional live adapter] --> K[Kafka topics by mode]
+  K --> S[Spark ingestion and exact incremental features]
+  S --> D[Delta audit history]
+  S --> P[PostgreSQL serving]
+  P --> U[Analyst scenarios and market monitor]
+  K --> W[Independent telemetry queries]
+  W --> O[Engineering console and evidence]
+```
 
 ## Evidence before interpretation
 
@@ -31,7 +61,7 @@ The real-data macro experiment remains **exploratory revised-data analysis**. At
 
 Oil-ridge's paired loss-difference intervals include zero. More complex models do not improve on persistence in this specification. Nominal 90% prediction bands under-cover in this sample; their empirical coverage is reported rather than treated as a guarantee.
 
-The V2 detector study calibrates methods at the same 1% clean-history alert budget, then evaluates held-out regimes and rare inserted jumps. Precision is low despite useful recall. Historical crisis cases are contextual review examples, not independent shock labels. The synthetic comparison does not silently replace the operational screening rule.
+The V2 detector study calibrates methods at the same 1% clean-history alert budget, then evaluates held-out paths across four regimes and rare inserted jumps. Precision is low despite useful recall. Historical crisis cases are contextual review examples, not independent shock labels. The synthetic comparison does not silently replace the operational screening rule.
 
 See [V2 local evidence](docs/LOCAL_VALIDATION_V2.md), [macro protocol](docs/MACRO_V2.md), [detector protocol](docs/DETECTORS_V2.md) and the [archived V1 result](docs/LOCAL_VALIDATION.md).
 
@@ -68,6 +98,8 @@ uv run cso macro --origins 96
 `reliability` and `commit-recovery` deliberately interrupt only this project's Spark service. Do not run recovery/load exercises concurrently. The default unit suite skips opt-in PostgreSQL cases; run them using `CSO_DB_TESTS=1` against the local PostgreSQL service. They use a disposable private schema.
 
 The first `macro` run downloads the public revised panel. To rerun offline after that, use `uv run cso macro --panel data/macro-revised.csv --origins 96`; this ignored data file is not included in the repository.
+
+The published aggregate evidence describes a dated local snapshot. Its panel hash identifies the input but cannot reconstruct it; a fresh download may contain revisions and need not reproduce the exact headline metrics. Frozen raw inputs and detailed forecasts are not distributed here.
 
 ## Understand the implementation
 

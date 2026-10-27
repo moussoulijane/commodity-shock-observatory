@@ -18,6 +18,9 @@ MAX_FEATURE_CONTEXT_ROWS = 250000
 MAX_BAR_CONTEXT_ROWS = 50000
 
 DDL = """
+-- A Kafka tombstone has no value bytes. Preserve SQL NULL in the audit trail,
+-- distinct from the literal JSON text 'null'; it never becomes an observation.
+ALTER TABLE deliveries ALTER COLUMN payload DROP NOT NULL;
 CREATE TABLE IF NOT EXISTS signals_v2 (
  mode text NOT NULL,instrument text NOT NULL,event_id text NOT NULL,
  event_time timestamptz NOT NULL,payload jsonb NOT NULL,
@@ -91,8 +94,9 @@ def ingest_batch(rows, batch_id):
     """COPY once, reject identity conflicts set-wise, retain durable retry ranges."""
     parsed = []
     for row in rows:
+        raw = row["payload"]
         try:
-            quote = Quote.model_validate_json(row["payload"])
+            quote = Quote.model_validate_json(raw)
             if TOPICS[quote.mode] != row["topic"]:
                 raise ValueError("Topic mode mismatch")
             payload = quote.model_dump(mode="json")
@@ -108,13 +112,14 @@ def ingest_batch(rows, batch_id):
             )
             valid, reason = True, None
         except (ValueError, TypeError):
-            data, valid, reason = (None,) * 8, False, "contract rejected"
+            data, valid = (None,) * 8, False
+            reason = "Kafka tombstone" if raw is None else "contract rejected"
         parsed.append(
             (
                 row["topic"],
                 row["partition_id"],
                 row["offset_id"],
-                row["payload"],
+                raw,
                 valid,
                 reason,
                 *data,

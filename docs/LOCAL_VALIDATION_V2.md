@@ -10,13 +10,15 @@ The aggregate reference is [local-v2-reference.json](evidence/local-v2-reference
 | Final serving parity | 30,069 canonical observations; zero missing and zero feature mismatches against a full-history pandas oracle | Includes 16,273 synthetic engineering observations; the total is not additional real-market coverage |
 | Actual Spark SQL oracle | 650 observations; 63 bounded-context outputs; exact median/MAD, negative/zero prices, monthly windows, microsecond timestamps and canonical OHLC pass | Exercises Spark computations, rather than only an equivalent Python implementation |
 | Independent clocks | Historical REPLAY watermark remains in 2009 while a separate SYNTHETIC query receives 2026 data | Actual independent file-stream queries; artificial clock fixtures do not enter market topics |
-| PostgreSQL integration | 9 tests pass against disposable private schemas | Conflict precedence, migrations, fencing, bounded context and touched-bar reads; public serving data untouched |
+| PostgreSQL integration | 12 tests pass against disposable private schemas | Conflict precedence, migrations, fencing, bounded context, touched-bar reads and Kafka tombstone progression; public serving data untouched |
+| Cross-mode parity regressions | Three tests preserve shared LIVE/REPLAY event IDs and detect a missing or corrupted row in one mode | Comparison identities include both mode and event ID |
+| Null Kafka values | Legacy audit constraint migration, mixed/standalone tombstones, distinct SQL NULL versus JSON text `null`, retries and later valid offsets pass | PostgreSQL integration proof; tombstones are quarantined and do not delete economic observations |
 | Sparse correction context | Two distant corrections in a 30,050-row fixture read 126 feature-context rows and 110 bar observations | Indexed neighborhoods avoid reading the intervening history |
 | Dense correction context | 2,000 adjacent anchors read 2,124 context rows | One merged neighborhood, without per-anchor duplicate histories |
 | SIGKILL recovery | 81 unique observations; eight duplicates; two quarantined messages; 40 out-of-order deliveries | Revised quote replaces its prior serving identity; raw revisions remain; 30-day-late correction and affected later scores reconcile |
-| Partial-commit recovery | 30 observations recovered after an intentional failure following PostgreSQL ingest, before Silver/features | Durable dirty events allow repair across systems; this is not a distributed atomic transaction |
+| Partial-commit recovery | 30 observations recovered after an intentional failure following PostgreSQL ingest, before Silver/features | Checks raw visibility and recovered signal identities; Silver contents, OHLC and completion-ledger convergence are not separately asserted by this exercise |
 
-The final unit suite passed **119 tests**, with **9 opt-in PostgreSQL tests skipped**. Those nine integration tests also passed in a separate database run. Ruff, frontend production build and Prettier checks passed. A dependency deprecation warning from Starlette's TestClient remains. These counts are recorded for this source revision; future additions can change them.
+The final unit suite passed **122 tests**, with **12 opt-in PostgreSQL tests skipped**. Those 12 integration tests also passed in a separate database run. Ruff, frontend production build and Prettier checks passed. A dependency deprecation warning from Starlette's TestClient remains. These counts include the pre-publication regressions; future additions can change them.
 
 ## Measured workload and latency
 
@@ -66,7 +68,7 @@ Desktop and 390-pixel mobile breakpoints were inspected; no horizontal document 
 
 - No personal FRED API key was supplied. The strict ALFRED path is tested with mocks and fabricated revision panels, but has not been exercised against a real account or audited for archival completeness. Generic CSV timestamps remain unverified and cannot become strict evidence through a flag.
 - The entitled live-feed adapter has not been exercised with a licensed account. A persistent bounded publisher alone does not validate an external market feed.
-- GitHub Actions is configured but has not run remotely for this unpublished project.
+- This local report predates the first GitHub Actions run. Consult the repository's Actions page for current remote validation status.
 - Scenario quantities, bases, hedge fractions and MAD/USD are explicit demonstration assumptions. The output is purchasing-cost arithmetic, not company P&L, inflation, PD or credit-loss forecasting.
 
 Use the [French V2 guide](V2_GUIDE_FR.md) to reproduce the checks. Recovery exercises deliberately stop this project's Spark process; run them sequentially, and retain each completion ledger with its checkpoint.

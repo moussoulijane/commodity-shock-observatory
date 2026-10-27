@@ -30,10 +30,10 @@ def verify():
     with connect() as conn:
         expected = score_history(current_snapshot(observation_frame(conn)))
         rows = conn.execute("SELECT payload FROM signals_v2").fetchall()
-    actual = {r["payload"]["event_id"]: r["payload"] for r in rows}
+    actual = {(r["payload"]["mode"], r["payload"]["event_id"]): r["payload"] for r in rows}
     missing, mismatches = 0, []
     for _, row in expected.iterrows():
-        item = actual.get(row.event_id)
+        item = actual.get((row["mode"], row.event_id))
         if not item:
             missing += 1
             continue
@@ -47,11 +47,18 @@ def verify():
                 )
             if not okay:
                 mismatches.append(
-                    {"instrument": row.instrument, "field": field, "date": str(row.event_time)}
+                    {
+                        "mode": row["mode"],
+                        "instrument": row.instrument,
+                        "field": field,
+                        "date": str(row.event_time),
+                    }
                 )
         for field in ("robust_alert", "baseline_alert"):
             if bool(row[field]) != item.get(field):
-                mismatches.append({"instrument": row.instrument, "field": field})
+                mismatches.append(
+                    {"mode": row["mode"], "instrument": row.instrument, "field": field}
+                )
     report = {
         "status": "passed"
         if not missing and not mismatches and len(actual) == len(expected)

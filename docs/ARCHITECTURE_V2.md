@@ -21,6 +21,8 @@ Existing V1 observation contracts and Kafka topics are retained. Delivery identi
 
 The raw bridge carries at most 2,000 Kafka offsets per trigger. COPY, set-wise validation and inserts replace per-event round trips. A single ingestion query coordinates materialization. PostgreSQL and Delta are not one distributed transaction; retries repair intermediate states.
 
+Kafka null values are quarantined transport records, not instructions to delete economic observations. V2 migrates the audit payload column to nullable so SQL NULL remains distinct from the literal JSON text `null`; malformed/null records cannot prevent subsequent valid offsets from being audited and ingested.
+
 ## Incremental context and distributed computation
 
 Changed timestamps are durable before feature materialization. Dense changes use a bounded range probe and one predecessor/middle/successor read. Sparse changes use indexed neighborhoods of at most 62 preceding observations, one anchor and 62 following observations. Overlapping neighborhoods are merged and deduplicated. The first differencing step plus a 60-change history fits inside this margin. Non-emitted prefix rows provide context and never overwrite older serving rows with incomplete warm-up estimates.

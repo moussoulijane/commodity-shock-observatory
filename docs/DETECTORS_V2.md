@@ -55,6 +55,11 @@ Observations within a path and paired paths are dependent. No significance or
 independent economic accuracy claim is made; this is not independent
 preregistration.
 
+Gaussian, volatility and drift profiles reuse innovation draws within a seed;
+event schedules also recur across profiles. The 96 inserted test-event instances
+are therefore not 96 independent replications. Their recall differences must not
+be interpreted through an ordinary independent-binomial confidence interval.
+
 With a local source snapshot, the report includes method-score coverage and
 post-hoc high V1 score examples from selected years (2008, 2020, 2022).
 Historical precision/recall remain unavailable without independent labels.
