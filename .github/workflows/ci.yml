@@ -15,7 +15,7 @@ jobs:
           version: 0.12.19
           enable-cache: "false"
       - run: uv sync --frozen --python 3.11
-      - run: uv run ruff check src tests infra
+      - run: uv run ruff check src tests scripts infra
       - run: uv run pytest -q
       - run: npm ci && npm run build
         working-directory: frontend
@@ -31,9 +31,17 @@ jobs:
       - run: uv sync --frozen --python 3.11
       - run: npm ci && npm run build
         working-directory: frontend
-      - run: docker compose up -d --build
+      - run: mkdir -p artifacts data
+      - run: docker compose build
+      - run: docker compose run --rm --no-deps spark python -m observatory.v2_checks
+      - run: docker compose up -d --wait postgres
+      - run: uv run pytest tests/test_incremental_store.py -q
+        env:
+          CSO_DB_TESTS: "1"
+      - run: docker compose up -d
       - run: uv run cso init
       - run: uv run cso reliability
+      - run: uv run cso commit-recovery
       - if: failure()
         run: docker compose logs --tail 120 spark api kafka
       - if: always()

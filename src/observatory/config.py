@@ -5,9 +5,9 @@ DATA = Path(os.getenv("DATA_DIR", "data"))
 ARTIFACTS = Path(os.getenv("ARTIFACT_DIR", "artifacts"))
 DATABASE = os.getenv(
     "DATABASE_URL",
-    "postgresql://observatory:local_observatory_only@localhost:5434/observatory",
+    "postgresql://observatory:local_observatory_only@127.0.0.1:5434/observatory",
 )
-BROKERS = os.getenv("KAFKA_BOOTSTRAP", "localhost:9094")
+BROKERS = os.getenv("KAFKA_BOOTSTRAP", "127.0.0.1:9094")
 TOPICS = {mode: f"cso.quotes.{mode.lower()}.v1" for mode in ("REPLAY", "LIVE", "SYNTHETIC")}
 
 # Instruments are economic contracts, not interchangeable ticker aliases.

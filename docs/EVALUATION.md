@@ -1,5 +1,7 @@
 # Evaluation protocol v1
 
+Archived V1 protocol. The active implementation uses the [V2 macro protocol](MACRO_V2.md), [V2 detector protocol](DETECTORS_V2.md) and [V2 local engineering validation](LOCAL_VALIDATION_V2.md). In particular, V2 acquires revision events using `output_type=2` and uses a different latency protocol; the descriptions below are historical.
+
 ## Detectors
 
 Fixed rules: |percentage change| >= 5 baseline; |robust z| >= 4 challenger. Robust z uses the median and 1.4826 × MAD of previous absolute price changes, with a small price-scale floor. Daily/tick: 60 observations, 20 previous changes minimum. Monthly: 36 observations, 12 changes minimum. No log returns are used. Prefix-causality tests perturb future values and require earlier scores to remain unchanged.

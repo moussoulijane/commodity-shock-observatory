@@ -1,4 +1,6 @@
-# Architecture and operating boundaries
+# V1 architecture and operating boundaries — archived reference
+
+For the active implementation, read [V2 architecture](ARCHITECTURE_V2.md). This document describes the preserved V1 design and its original limits.
 
 Python adapters → Kafka topics → two Spark Structured Streaming queries → Delta Lake / PostgreSQL → read-only FastAPI / React.
 

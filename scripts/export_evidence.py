@@ -1,4 +1,4 @@
-"""Export aggregate evidence only. Source observations and forecast rows stay local."""
+"""Export V2 aggregate evidence, preserving the frozen V1 reference."""
 
 import hashlib
 import json
@@ -9,22 +9,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def report(name):
-    return json.loads((ROOT / "artifacts" / name).read_text(encoding="utf-8"))
+    path = ROOT / "artifacts" / name
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"status": "not_run"}
 
 
 macro = report("macro-exploratory.json")
-macro_summary = {k: v for k, v in macro.items() if k != "predictions"}
-macro_summary["evaluation_periods"] = {
+predictions = macro.pop("predictions", [])
+macro["evaluation_periods"] = {
     str(h): {
-        "first_origin": min(r["origin"] for r in macro["predictions"] if r["horizon"] == h),
-        "last_origin": max(r["origin"] for r in macro["predictions"] if r["horizon"] == h),
+        "first_origin": min(r["origin"] for r in predictions if r["horizon"] == h),
+        "last_origin": max(r["origin"] for r in predictions if r["horizon"] == h),
     }
     for h in (1, 3)
+    if any(r["horizon"] == h for r in predictions)
 }
-detectors = report("detector-evaluation.json")
-detectors["real_data"] = [
-    {k: v for k, v in row.items() if k != "top_events"} for row in detectors["real_data"]
-]
+detectors = report("detector-evaluation-v2.json")
+if isinstance(detectors.get("historical_review"), dict):
+    # Reference case studies remain described, without copying quote payloads.
+    detectors["historical_review"].pop("top_events", None)
 paths = [
     *ROOT.glob("src/**/*.py"),
     *ROOT.glob("frontend/src/*"),
@@ -39,19 +41,25 @@ hashes = {
     if p.is_file()
 }
 evidence = {
+    "version": 2,
     "created_at": datetime.now(UTC).isoformat(),
-    "scope": "Local Docker Desktop validation; aggregate evidence only; no production or independent accuracy claim",
+    "scope": "Local Docker Desktop validation; aggregate evidence only; no production or independent economic accuracy claim",
+    "v1_reference": "docs/evidence/local-reference.json, tag v1-local-validation",
     "source_counts": json.loads((ROOT / "data/source-report.json").read_text()),
-    "snapshot_parity": report("batch-stream-parity.json"),
-    "recovery": report("reliability.json"),
-    "load": report("load-test.json"),
-    "macro": macro_summary,
+    "spark_oracle_and_clock_isolation": report("spark-checks-v2.json"),
+    "feature_parity": report("parity-v2.json"),
+    "recovery": report("reliability-v2.json"),
+    "partial_commit_recovery": report("commit-recovery-v2.json"),
+    "burst_load": report("load-test-v2.json"),
+    "sustained_load": report("sustained-load-v2.json"),
+    "macro": macro,
     "detectors": detectors,
-    "strict_macro": "not run: no FRED API key supplied",
-    "live_feed": "adapter implemented; not exercised against an entitled provider account",
+    "strict_macro": "No real FRED API key supplied; unverified CSV cannot claim strict provenance",
+    "live_market": "Persistent adapter implemented; not exercised against an entitled provider account",
+    "ci": "Configured; not run on GitHub before publication",
     "source_file_sha256": hashes,
 }
-target = ROOT / "docs/evidence/local-reference.json"
+target = ROOT / "docs/evidence/local-v2-reference.json"
 target.parent.mkdir(parents=True, exist_ok=True)
 target.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8", newline="\n")
 print(target)

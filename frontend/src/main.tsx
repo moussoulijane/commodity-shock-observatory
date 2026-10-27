@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   ArrowSquareOut,
   ChartLine,
+  Calculator,
   CircleNotch,
   Database,
   DownloadSimple,
@@ -15,6 +16,7 @@ import {
   Notebook,
   Waves,
 } from "@phosphor-icons/react";
+import ExposureWorkspace from "./ExposureWorkspace";
 import "./style.css";
 
 type Mode = "REPLAY" | "LIVE" | "SYNTHETIC";
@@ -640,8 +642,10 @@ function Research() {
           <div className="notice">
             <strong>
               {report.evaluation_type === "initial_release_asof"
-                ? "Initial-release evaluation"
-                : "Exploratory results · revised historical data"}
+                ? "Revision-aware as-of evaluation · first-release targets"
+                : report.evaluation_type === "exploratory_unverified_csv"
+                  ? "Unverified CSV exploration"
+                  : "Exploratory results · revised historical data"}
             </strong>
             <p>{report.information_policy}</p>
           </div>
@@ -673,6 +677,12 @@ function Research() {
               </tbody>
             </table>
           </div>
+          {query.data?.strict_cache_status === "unverified" && (
+            <p className="reference-caveat">
+              A cached strict report has unverified acquisition metadata and is
+              not presented as strict evidence. The exploratory report is shown.
+            </p>
+          )}
           <div className="method-note">
             <h3>Interpretation boundaries</h3>
             <ul>
@@ -687,8 +697,8 @@ function Research() {
           <div className="empty">
             <h3>No macro experiment has been run.</h3>
             <p>
-              Run the macro evaluation command. A strict initial-release study
-              requires a FRED API key.
+              Run the macro evaluation command. An as-of revision study requires
+              a FRED API key and verified acquisition metadata.
             </p>
           </div>
         )
@@ -698,9 +708,11 @@ function Research() {
           <span className="eyebrow">01 / INFORMATION SET</span>
           <h3>What was available then?</h3>
           <p>
-            Strict mode uses initial-release vintages with conservative next-day
-            availability. Exploratory mode retains revision leakage and is
-            labelled accordingly.
+            Strict mode uses the latest revision available at each forecast
+            origin from the ALFRED output_type=2 revision matrix. Targets are
+            first-release inflation; vintage dates become available at the
+            following UTC midnight. Exploratory mode retains revision leakage
+            and is labelled accordingly.
           </p>
         </div>
         <div>
@@ -791,13 +803,34 @@ function Operations() {
             ))}
           </div>
           <h2>Canonical observations by mode</h2>
+          <p>{d.canonical_count_definition}</p>
           <pre>{JSON.stringify(d.canonical_counts, null, 2)}</pre>
+          <h2>Canonical batch / stream parity</h2>
+          <pre>
+            {JSON.stringify(d.parity ?? { status: "not run" }, null, 2)}
+          </pre>
           <h2>Reliability exercise</h2>
           <pre>
             {JSON.stringify(d.reliability ?? { status: "not run" }, null, 2)}
           </pre>
-          <h2>Measured load exercise</h2>
+          <h2>Commit-boundary recovery</h2>
+          <pre>
+            {JSON.stringify(
+              d.commit_recovery ?? { status: "not run" },
+              null,
+              2,
+            )}
+          </pre>
+          <h2>Burst load measurement</h2>
           <pre>{JSON.stringify(d.load ?? { status: "not run" }, null, 2)}</pre>
+          <h2>Sustained load measurement</h2>
+          <pre>
+            {JSON.stringify(d.sustained_load ?? { status: "not run" }, null, 2)}
+          </pre>
+          <h2>Spark state and correctness checks</h2>
+          <pre>
+            {JSON.stringify(d.spark_checks ?? { status: "not run" }, null, 2)}
+          </pre>
           <h2>Spark event-time progress</h2>
           <pre>
             {JSON.stringify(
@@ -808,6 +841,10 @@ function Operations() {
           </pre>
           <h2>Recent committed batches</h2>
           <pre>{JSON.stringify(d.batches, null, 2)}</pre>
+          <h2>V2 detector evaluation</h2>
+          <pre>
+            {JSON.stringify(d.detectors_v2 ?? { status: "not run" }, null, 2)}
+          </pre>
         </>
       )}
     </main>
@@ -816,10 +853,12 @@ function Operations() {
 
 function App() {
   const [mode, setMode] = useState<Mode>("REPLAY"),
-    [view, setView] = useState("market");
+    [view, setView] = useState("exposure");
   const query = useApi<Workspace>(`/api/workspace?mode=${mode}`);
+  const displayedMode = view === "exposure" ? "REPLAY" : mode;
   if (location.pathname === "/ops") return <Operations />;
   const nav = [
+    { id: "exposure", label: "Exposure & scenarios", icon: Calculator },
     { id: "market", label: "Market overview", icon: ChartLine },
     { id: "shocks", label: "Shock history", icon: Lightning },
     { id: "sources", label: "Data sources", icon: Database },
@@ -866,7 +905,7 @@ function App() {
           <p>
             LOCAL RESEARCH PLATFORM
             <br />
-            VERSION 0.1
+            VERSION 0.2
           </p>
         </div>
       </aside>
@@ -874,74 +913,95 @@ function App() {
         <header className="topbar">
           <div className="breadcrumb">
             Commodities <span>/</span>{" "}
-            {view === "market"
-              ? "Overview"
-              : view === "shocks"
-                ? "Shock history"
-                : view === "research"
-                  ? "Research"
-                  : "Sources"}
+            {view === "exposure"
+              ? "Exposure & scenarios"
+              : view === "market"
+                ? "Overview"
+                : view === "shocks"
+                  ? "Shock history"
+                  : view === "research"
+                    ? "Research"
+                    : "Sources"}
           </div>
           <div className="header-actions">
-            <label className="mode-switch">
-              <span>Data mode</span>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as Mode)}
-                aria-label="Data mode"
+            {view === "exposure" ? (
+              <div className="mode-switch">
+                <span>Reference data</span>
+                <strong className="reference-mode">REPLAY</strong>
+              </div>
+            ) : (
+              <label className="mode-switch">
+                <span>Data mode</span>
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as Mode)}
+                  aria-label="Data mode"
+                >
+                  <option>REPLAY</option>
+                  <option>LIVE</option>
+                  <option>SYNTHETIC</option>
+                </select>
+              </label>
+            )}
+            {view !== "exposure" && (
+              <button
+                className="icon-button"
+                aria-label="Refresh market data"
+                onClick={query.reload}
               >
-                <option>REPLAY</option>
-                <option>LIVE</option>
-                <option>SYNTHETIC</option>
-              </select>
-            </label>
-            <button
-              className="icon-button"
-              aria-label="Refresh market data"
-              onClick={query.reload}
-            >
-              <CircleNotch size={18} />
-            </button>
+                <CircleNotch size={18} />
+              </button>
+            )}
           </div>
         </header>
         <main className="main-content">
           <div className="mode-banner">
             <span className="mode-dot" />
             <strong>
-              {mode === "REPLAY"
+              {displayedMode === "REPLAY"
                 ? "Historical replay"
-                : mode === "SYNTHETIC"
+                : displayedMode === "SYNTHETIC"
                   ? "Synthetic test data"
                   : "Intraday provider feed"}
             </strong>
             <span>
-              {mode === "REPLAY"
+              {displayedMode === "REPLAY"
                 ? "Observation dates are historical. Values may include later revisions."
-                : mode === "LIVE"
+                : displayedMode === "LIVE"
                   ? "Availability depends on the provider connection and your entitlements."
                   : "Artificial observations. Excluded from economic research."}
             </span>
           </div>
-          <Status {...query} retry={query.reload} />
-          {!query.loading &&
-            !query.error &&
-            query.data &&
-            (view === "market" ? (
-              <Market
-                workspace={query.data}
-                mode={mode}
-                onShock={() => setView("shocks")}
-              />
-            ) : view === "shocks" ? (
-              <Shocks mode={mode} onInspect={() => setView("research")} />
-            ) : view === "research" ? (
-              <Research />
-            ) : (
-              <Sources />
-            ))}
+          {view === "exposure" ? (
+            <ExposureWorkspace />
+          ) : (
+            <>
+              <Status {...query} retry={query.reload} />
+              {!query.loading &&
+                !query.error &&
+                query.data &&
+                (view === "market" ? (
+                  <Market
+                    workspace={query.data}
+                    mode={mode}
+                    onShock={() => setView("shocks")}
+                  />
+                ) : view === "shocks" ? (
+                  <Shocks mode={mode} onInspect={() => setView("research")} />
+                ) : view === "research" ? (
+                  <Research />
+                ) : (
+                  <Sources />
+                ))}
+            </>
+          )}
           <footer>
             <span>Commodity Shock Observatory</span>
-            <span>Screening signals · evidence before interpretation</span>
+            <span>
+              {view === "exposure"
+                ? "Purchasing scenarios · assumptions shown explicitly"
+                : "Screening signals · evidence before interpretation"}
+            </span>
           </footer>
         </main>
       </div>

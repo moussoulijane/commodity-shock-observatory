@@ -61,6 +61,7 @@ services:
       <<: *environment
       SPARK_LOCAL_IP: 127.0.0.1
       SPARK_MODES: REPLAY,SYNTHETIC,LIVE
+      CSO_FAILPOINT: ${CSO_FAILPOINT:-}
     volumes: ["lake:/app/lake", "checkpoints:/app/checkpoints", "./artifacts:/app/artifacts"]
     depends_on:
       kafka: {condition: service_healthy}

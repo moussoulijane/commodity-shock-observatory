@@ -18,11 +18,16 @@ def main():
     macro = sub.add_parser("macro")
     macro.add_argument("--strict", action="store_true")
     macro.add_argument("--origins", type=int, default=96)
+    macro.add_argument("--panel", type=Path, help="Offline vintage/revised panel CSV")
     sub.add_parser("evaluate-detectors")
     sub.add_parser("verify")
     sub.add_parser("reliability")
+    sub.add_parser("commit-recovery")
     load = sub.add_parser("load-test")
     load.add_argument("--events", type=int, default=5000)
+    sustained = sub.add_parser("sustained-load")
+    sustained.add_argument("--seconds", type=int, default=120)
+    sustained.add_argument("--rate", type=float, default=50)
     live = sub.add_parser("live")
     live.add_argument("--symbols", default="XAU/USD")
     args = parser.parse_args()
@@ -31,8 +36,8 @@ def main():
 
         fetch_history(args.start, args.end)
     elif args.command == "init":
+        from observatory.incremental_store import init
         from observatory.producer import create_topics
-        from observatory.store import init
 
         init()
         create_topics()
@@ -41,17 +46,32 @@ def main():
 
         print({"published": replay(args.path, args.rate, args.start, args.end)})
     elif args.command == "macro":
-        from observatory.macro import evaluate, fetch_macro
+        from observatory.macro import evaluate, fetch_macro, load_vintage_panel
 
-        evaluate(fetch_macro(args.strict), args.strict, max_origins=args.origins)
-    elif args.command in ("verify", "reliability", "load-test", "evaluate-detectors"):
-        from observatory import validation
+        evaluate(
+            load_vintage_panel(args.panel) if args.panel else fetch_macro(args.strict),
+            args.strict,
+            max_origins=args.origins,
+        )
+    elif args.command == "evaluate-detectors":
+        from observatory.detector_evaluation import run_evaluation
+
+        run_evaluation()
+    elif args.command in (
+        "verify",
+        "reliability",
+        "load-test",
+        "commit-recovery",
+        "sustained-load",
+    ):
+        from observatory import validation_v2 as validation
 
         commands = {
             "verify": validation.verify,
             "reliability": validation.reliability,
-            "load-test": lambda: validation.load_test(args.events),
-            "evaluate-detectors": validation.evaluate_detectors,
+            "load-test": lambda: validation.benchmark(args.events),
+            "commit-recovery": validation.commit_recovery,
+            "sustained-load": lambda: validation.benchmark(seconds=args.seconds, rate=args.rate),
         }
         commands[args.command]()
     elif args.command == "live":

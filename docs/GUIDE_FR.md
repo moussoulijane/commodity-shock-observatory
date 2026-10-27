@@ -1,5 +1,7 @@
 # Comprendre et relancer le projet, étape par étape
 
+Ce guide décrit la V1. Pour l'application actuelle, commencer par le [guide V2](V2_GUIDE_FR.md).
+
 ## 1. La question métier
 
 L'analyste veut repérer les mouvements inhabituels des matières premières et vérifier si le pétrole apporte de l'information pour prévoir l'inflation. Une alerte décrit un mouvement de prix : elle n'en prouve ni la cause ni l'effet sur l'inflation.
